@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Product;
+use App\Review;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
@@ -28,16 +29,6 @@ class ProductController extends Controller
     }
 
     /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
      * Store a newly created resource in storage.
      *
      * @param  \Illuminate\Http\Request  $request
@@ -45,7 +36,20 @@ class ProductController extends Controller
      */
     public function store(Request $request)
     {
-        
+        $request->validate([
+            'name'        => 'required|string',
+            'description' => 'required|string',
+            'price'       => 'required|numeric|min:0'
+        ]);
+
+        $product = new Product;
+        $product->name = $request->name;
+        $product->description = $request->description;
+        $product->price = $request->price;
+
+        auth()->user()->products()->save($product);
+        return response()->json(['message' => 'Product has been Added', 'product' => $product]);
+
     }
 
     /**
@@ -56,18 +60,10 @@ class ProductController extends Controller
      */
     public function show(Product $product)
     {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  \App\Product  $product
-     * @return \Illuminate\Http\Response
-     */
-    public function edit(Product $product)
-    {
-        //
+        $product->load(['reviews' => function ($query) {
+            $query->latest();
+        }, 'user']);
+        return response()->json(['product' => $product]);
     }
 
     /**
@@ -79,7 +75,22 @@ class ProductController extends Controller
      */
     public function update(Request $request, Product $product)
     {
-        //
+        if (auth()->user()->id !== $product->user_id) {
+            return response()->json(['message' => 'Action forbidden']);
+        }
+
+        $request->validate([
+            'name' => 'required|string',
+            'description' => 'required|string',
+            'price' => 'required|numeric',
+        ]);
+
+        $product->name = $request->name;
+        $product->description = $request->description;
+        $product->price = $request->price;
+        $product->save();
+
+        return response()->json(['message' => 'Product has been updated', 'product' => $product]);
     }
 
     /**
@@ -90,6 +101,11 @@ class ProductController extends Controller
      */
     public function destroy(Product $product)
     {
-        //
+        if (auth()->user()->id !== $product->user_id) {
+            return response()->json(['message' => 'Action forbidden']);
+        }
+
+        $product->delete();
+        return response()->json(null, 204);
     }
 }
